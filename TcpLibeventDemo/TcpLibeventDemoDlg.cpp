@@ -204,7 +204,7 @@ void CTcpLibeventDemoDlg::OnBnClickedButton1()
 		{
 			//客户端_bufferevent
 			m_pBufEventClient = NewTcpLib(2, param);
-			m_pBufEventClient->Init("10.21.38.21", 8888);
+			m_pBufEventClient->Init("1.1.1.1", 8888);
 			m_pBufEventClient->Start();
 		}
 		break;
@@ -212,7 +212,7 @@ void CTcpLibeventDemoDlg::OnBnClickedButton1()
 		{
 			//客户端_event
 			m_pTcpLibClient= NewTcpLib(3, param);
-			m_pTcpLibClient->Init("10.21.38.21", 8888);
+			m_pTcpLibClient->Init("1.1.1.1", 8888);
 			m_pTcpLibClient->Start();
 		}
 		break;

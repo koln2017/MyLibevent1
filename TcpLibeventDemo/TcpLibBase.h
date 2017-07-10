@@ -1,9 +1,12 @@
 #ifndef _TCPLIBBASE_H_
 #define _TCPLIBBASE_H_
 
-#define bzero(argc, len)		memset(argc, 0, len)
 #define MAX_LINE		1024
 #define LISTEN_BACKLOG	32
+#define MAX_LISTEN_SOCKET_NUM	1024
+#define MAX_READ_MSG_LEN	4096
+
+#define bzero(argc, len)		memset(argc, 0, len)
 typedef void (*ReadCbFun)(void *argc, void *argv);
 
 enum STATUS_EN
@@ -16,6 +19,9 @@ enum STATUS_EN
 	event_base_new_fail,
 	inet_ntop_fail,
 	connect_fail,
+	evconnlistener_new_bind_fail,
+	bufferevent_socket_new_fail,
+	bufferevent_socket_connect_fail,
 };
 
 struct CBFUN_PARAM_T

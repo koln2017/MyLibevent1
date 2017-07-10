@@ -5,6 +5,7 @@
 #pragma once
 #include "TcpLibBase.h"
 #include "TcpLibServer.h"
+#include "BufferEventSer.h"
 #include "afxwin.h"
 
 // CTcpLibeventDemoDlg ¶Ô»°¿ò
@@ -34,6 +35,8 @@ protected:
 public:
 	CTcpLibBase *m_pTcpLibSer;
 	CTcpLibBase *m_pTcpLibClient;
+	CTcpLibBase *m_pBufEventSer;
+	CTcpLibBase *m_pBufEventClient;
 	afx_msg void OnBnClickedButton1();
 	afx_msg void OnBnClickedButton2();
 	afx_msg void OnBnClickedButton3();

@@ -50,6 +50,8 @@ CTcpLibeventDemoDlg::CTcpLibeventDemoDlg(CWnd* pParent /*=NULL*/)
 	, m_strSend(_T(""))
 	, m_pTcpLibClient(NULL)
 	, m_pTcpLibSer(NULL)
+	, m_pBufEventSer(NULL)
+	, m_pBufEventClient(NULL)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -180,19 +182,42 @@ void CTcpLibeventDemoDlg::OnBnClickedButton1()
 	param.pThis = this;
 	param.cbFun = TcpcbFun;
 	int nSel = m_cmbType.GetCurSel();
-	if (0 == nSel)
+	switch (nSel)
 	{
-		//服务端
-		m_pTcpLibSer = NewTcpLib(0, param);
-		m_pTcpLibSer->Init("", 8888);
-		m_pTcpLibSer->Start();
-	}
-	else
-	{
-		//客户端
-		m_pTcpLibClient= NewTcpLib(1, param);
-		m_pTcpLibClient->Init("1.1.1.1", 8888);
-		m_pTcpLibClient->Start();
+	case 0:
+		{
+			//服务端_bufferevent
+			m_pBufEventSer = NewTcpLib(0, param);
+			m_pBufEventSer->Init("", 8888);
+			m_pBufEventSer->Start();
+		}
+		break;
+	case 1:
+		{
+			//服务端_event
+			m_pTcpLibSer = NewTcpLib(1, param);
+			m_pTcpLibSer->Init("", 8888);
+			m_pTcpLibSer->Start();
+		}
+		break;
+	case 2:
+		{
+			//客户端_bufferevent
+			m_pBufEventClient = NewTcpLib(2, param);
+			m_pBufEventClient->Init("10.21.38.21", 8888);
+			m_pBufEventClient->Start();
+		}
+		break;
+	case 3:
+		{
+			//客户端_event
+			m_pTcpLibClient= NewTcpLib(3, param);
+			m_pTcpLibClient->Init("10.21.38.21", 8888);
+			m_pTcpLibClient->Start();
+		}
+		break;
+	default:
+		break;
 	}
 	m_cmbType.EnableWindow(FALSE);
 }
@@ -200,15 +225,34 @@ void CTcpLibeventDemoDlg::OnBnClickedButton1()
 void CTcpLibeventDemoDlg::OnBnClickedButton2()
 {
 	int nSel = m_cmbType.GetCurSel();
-	if (0 == nSel)
+	switch (nSel)
 	{
-		//服务端
-		m_pTcpLibSer->Stop();
-	}
-	else
-	{
-		//客户端
-		m_pTcpLibClient->Stop();
+	case 0:
+		{
+			//服务端_bufferevent
+			m_pBufEventSer->Stop();
+		}
+		break;
+	case 1:
+		{
+			//服务端_event
+			m_pTcpLibSer->Stop();
+		}
+		break;
+	case 2:
+		{
+			//客户端_bufferevent
+			m_pBufEventClient->Stop();
+		}
+		break;
+	case 3:
+		{
+			//客户端_event
+			m_pTcpLibClient->Stop();
+		}
+		break;
+	default:
+		break;
 	}
 	m_cmbType.EnableWindow(TRUE);
 }
@@ -219,16 +263,37 @@ void CTcpLibeventDemoDlg::OnBnClickedButton3()
 	CString str;
 	m_editSend.GetWindowText(str);
 	int nSel = m_cmbType.GetCurSel();
-	if (0 == nSel)
+	switch (nSel)
 	{
-		//服务端
-		TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
-		m_pTcpLibSer->Send((const unsigned char*)W2A(pBuf), str.GetLength());
-	}
-	else
-	{
-		//客户端
-		TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
-		m_pTcpLibClient->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+	case 0:
+		{
+			//服务端_bufferevent
+			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
+			m_pBufEventSer->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+		}
+		break;
+	case 1:
+		{
+			//服务端_event
+			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
+			m_pTcpLibSer->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+		}
+		break;
+	case 2:
+		{
+			//客户端_bufferevent
+			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
+			m_pBufEventClient->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+		}
+		break;
+	case 3:
+		{
+			//客户端_event
+			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
+			m_pTcpLibClient->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+		}
+		break;
+	default:
+		break;
 	}
 }

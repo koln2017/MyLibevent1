@@ -38,18 +38,19 @@ int CBufferEventClient::Init(char *pIP, int nPort)
 	addr.sin_port = htons(nPort);
 	addr.sin_family = PF_INET; //=AF_INET
 
-	m_pBase = event_base_new();
-	if (NULL == m_pBase)
-	{
-		return event_base_new_fail;
-	}
-
+	//设置多线程
 #ifdef WIN32
 	evthread_use_windows_threads();//win上设置
 #else
 	evthread_use_pthreads();    //unix上设置
 #endif
 	evthread_make_base_notifiable((event_base *)m_pBase);
+
+	m_pBase = event_base_new();
+	if (NULL == m_pBase)
+	{
+		return event_base_new_fail;
+	}
 
 	m_pBufEvent = bufferevent_socket_new(m_pBase, -1, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
 	if (NULL == m_pBufEvent)

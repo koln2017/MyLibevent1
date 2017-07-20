@@ -40,7 +40,7 @@ void CTcpLibServer::SetTcpNoDelay(evutil_socket_t fd)
 	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const char*)&nOne, sizeof nOne);
 }
 
-int CTcpLibServer::Init(char *pIP, int nPort)
+int CTcpLibServer::Init()
 {
 	WSADATA wsaData;
 	DWORD dwRet;
@@ -58,7 +58,7 @@ int CTcpLibServer::Init(char *pIP, int nPort)
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(nPort);
+	servaddr.sin_port = htons(g_param.nPort);
 
 	if (bind(m_listenfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0)
 	{
@@ -107,9 +107,10 @@ void CTcpLibServer::Stop()
 	event_base_loopexit(m_pBase, NULL);
 }
 
-void CTcpLibServer::Send(const unsigned char*pBuf, unsigned int nLen)
+int CTcpLibServer::Send(void *pSendID, const unsigned char*pBuf, unsigned int nLen)
 {
 	//bufferevent_write(m_pBev, pBuf, nLen);
+	return -1;
 }
 
 void do_accept(evutil_socket_t listenfd, short event, void *arg)
@@ -138,7 +139,7 @@ void read_cb(struct bufferevent *pBev, void *arg)
 	evutil_socket_t fd = bufferevent_getfd(pBev);
 	while(nLen = bufferevent_read(pBev, szBuf, sizeof(szBuf)-1), nLen > 0)
 	{
-		g_param.cbFun(g_param.pThis, szBuf);
+		g_param.cbFun(TCP_READ_DATA, g_param.pThis, szBuf);
 		bufferevent_write(pBev, szBuf, nLen);
 	}
 }

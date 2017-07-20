@@ -19,9 +19,10 @@ CBufferEventClient::~CBufferEventClient(void)
 {
 	bufferevent_free(m_pBufEvent);
 	event_base_free(m_pBase);
+	WSACleanup();
 }
 
-int CBufferEventClient::Init(char *pIP, int nPort)
+int CBufferEventClient::Init()
 {
 	WSADATA wsaData;
 	DWORD dwRet;
@@ -31,11 +32,11 @@ int CBufferEventClient::Init(char *pIP, int nPort)
 	}
 
 	sockaddr_in addr;
-	if (inet_pton(AF_INET, pIP, &addr.sin_addr) < 1)
+	if (inet_pton(AF_INET, g_param.pIP, &addr.sin_addr) < 1)
 	{
 		return inet_ntop_fail;
 	}
-	addr.sin_port = htons(nPort);
+	addr.sin_port = htons(g_param.nPort);
 	addr.sin_family = PF_INET; //=AF_INET
 
 	//设置多线程
@@ -44,13 +45,13 @@ int CBufferEventClient::Init(char *pIP, int nPort)
 #else
 	evthread_use_pthreads();    //unix上设置
 #endif
-	evthread_make_base_notifiable((event_base *)m_pBase);
 
 	m_pBase = event_base_new();
 	if (NULL == m_pBase)
 	{
 		return event_base_new_fail;
 	}
+	evthread_make_base_notifiable((event_base *)m_pBase);
 
 	m_pBufEvent = bufferevent_socket_new(m_pBase, -1, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
 	if (NULL == m_pBufEvent)
@@ -59,15 +60,14 @@ int CBufferEventClient::Init(char *pIP, int nPort)
 		return bufferevent_socket_new_fail;
 	}
 
-	bufferevent_setcb(m_pBufEvent, OnReadClient, OnWriteClient, OnEventClient, NULL);
-	bufferevent_enable(m_pBufEvent, EV_READ | EV_WRITE | EV_PERSIST);
+	bufferevent_setcb(m_pBufEvent, OnReadClient, NULL, OnEventClient, this);
+	bufferevent_enable(m_pBufEvent, EV_READ | /*EV_WRITE |*/ EV_PERSIST);
 
 	if (bufferevent_socket_connect(m_pBufEvent, (sockaddr*)&addr, sizeof(addr)) < 0)
 	{
 		bufferevent_free(m_pBufEvent);
 		return bufferevent_socket_connect_fail;
 	}
-
 
 	return success;
 }
@@ -94,19 +94,29 @@ void CBufferEventClient::Stop()
 	event_base_loopexit(m_pBase, NULL);
 }
 
-void CBufferEventClient::Send(const unsigned char*pBuf, unsigned int nLen)
+int CBufferEventClient::Send(void *pSendID, const unsigned char*pBuf, unsigned int nLen)
 {
-	bufferevent_write(m_pBufEvent, pBuf, nLen+1);
+	return bufferevent_write(m_pBufEvent, pBuf, nLen+1);
+}
+
+int CBufferEventClient::GetSocketID()
+{
+	evutil_socket_t nFd = bufferevent_getfd(m_pBufEvent);
+	return nFd;
 }
 
 void OnReadClient(bufferevent *pBufEvent, void *pParam)
 {
-	char szMsg[MAX_READ_MSG_LEN] = {0};
+	unsigned char szMsg[MAX_READ_MSG_LEN] = {0};
 
 	int nLen = bufferevent_read(pBufEvent, szMsg, MAX_READ_MSG_LEN);
 	if (nLen > 0)
 	{
-		g_param.cbFun(g_param.pThis, szMsg);
+		DATA_PACKAGE_T data;
+		data.pSendID = pBufEvent;
+		data.nLen = nLen;
+		data.pData = szMsg;
+		g_param.cbFun(TCP_READ_DATA, g_param.pThis, (void*)&data);
 	}
 }
 
@@ -123,10 +133,16 @@ void OnEventClient(bufferevent *pBufEvent, short nEventType, void *pParam)
 	{
 		//OnEvent connect closed
 		bufferevent_free(pBufEvent);
+		CBufferEventClient *pDlg = (CBufferEventClient *)pParam;
+		int nFd = pDlg->GetSocketID();
+		g_param.cbFun(TCP_CLIENT_DISCONNECT, g_param.pThis, (void*)&nFd);
 	}
 	else if (nEventType & BEV_EVENT_CONNECTED)
 	{
 		//OnEvent connect to server success
+		CBufferEventClient *pDlg = (CBufferEventClient *)pParam;
+		int nFd = pDlg->GetSocketID();
+		g_param.cbFun(TCP_CLIENT_CONNECT, g_param.pThis, (void*)&nFd);
 	}
 	else if (nEventType & BEV_EVENT_ERROR)
 	{

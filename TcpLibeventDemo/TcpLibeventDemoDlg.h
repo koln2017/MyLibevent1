@@ -14,6 +14,7 @@ class CTcpLibeventDemoDlg : public CDialog
 // 构造
 public:
 	CTcpLibeventDemoDlg(CWnd* pParent = NULL);	// 标准构造函数
+	~CTcpLibeventDemoDlg();
 
 // 对话框数据
 	enum { IDD = IDD_TCPLIBEVENTDEMO_DIALOG };
@@ -45,4 +46,6 @@ public:
 	CComboBox m_cmbType;
 	CEdit m_editSend;
 	CEdit m_editRecv;
+
+	static void TcpcbFun(CBTYPE_EN enType, void *pThis, void *pBuf);
 };

@@ -12,15 +12,17 @@ CBufferEventSer::CBufferEventSer(CBFUN_PARAM_T param)
 	m_pBase(NULL)
 {
 	g_param = param;
+	m_vecBufferInfo.clear();
 }
 
 CBufferEventSer::~CBufferEventSer(void)
 {
 	evconnlistener_free(m_pEvlistener);
 	event_base_free(m_pBase);
+	WSACleanup();
 }
 
-int CBufferEventSer::Init(char *pIP, int nPort)
+int CBufferEventSer::Init()
 {
 	WSADATA wsaData;
 	DWORD dwRet;
@@ -29,9 +31,16 @@ int CBufferEventSer::Init(char *pIP, int nPort)
 		return WSAStartup_fail;
 	}
 
+	//设置多线程
+#ifdef WIN32
+	evthread_use_windows_threads();//win上设置
+#else
+	evthread_use_pthreads();    //unix上设置
+#endif
+
 	sockaddr_in addr;
 	addr.sin_addr.s_addr = 0;
-	addr.sin_port = htons(nPort);
+	addr.sin_port = htons(g_param.nPort);
 	addr.sin_family = PF_INET; //=AF_INET
 	
 	m_pBase = event_base_new();
@@ -39,8 +48,9 @@ int CBufferEventSer::Init(char *pIP, int nPort)
 	{
 		return event_base_new_fail;
 	}
+	evthread_make_base_notifiable((event_base *)m_pBase);
 
-	m_pEvlistener = evconnlistener_new_bind(m_pBase, OnAccept, m_pBase, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, MAX_LISTEN_SOCKET_NUM, (sockaddr *)&addr, sizeof(addr));
+	m_pEvlistener = evconnlistener_new_bind(m_pBase, OnAccept, this, LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, MAX_LISTEN_SOCKET_NUM, (sockaddr *)&addr, sizeof(addr));
 	if (NULL == m_pEvlistener)
 	{
 		event_base_free(m_pBase);
@@ -72,9 +82,34 @@ void CBufferEventSer::Stop()
 	event_base_loopexit(m_pBase, NULL);
 }
 
-void CBufferEventSer::Send(const unsigned char*pBuf, unsigned int nLen)
+int CBufferEventSer::Send(void *pSendID, const unsigned char*pBuf, unsigned int nLen)
 {
-	//bufferevent_write(m_pBev, pBuf, nLen);
+	//服务器使用bufferevent_write时，需要使用到bufferevent，所以发送时需要遍历fd，大并发量时需要考虑效率
+	 if (NULL == pSendID)
+	 {
+		 int nSize = m_vecBufferInfo.size();
+		 if (nSize > 0)
+		 {
+			 //没有指定SocketID则给最后连接的Socket客户端发送数据
+			return bufferevent_write(m_vecBufferInfo.at(nSize-1).pBufvClient, pBuf, nLen);
+			//int nRet = send(m_vecBufferInfo.at(nSize-1).fdClient, (const char*)pBuf, nLen, 0);
+			//if (SOCKET_ERROR == nRet)
+			//{
+			//	return -1;
+			//}
+		 }
+	 }
+	 else
+	 {
+		for (int i = 0; i < m_vecBufferInfo.size(); i++)
+		{
+			if (m_vecBufferInfo.at(i).pBufvClient == pSendID)
+			{
+				return bufferevent_write(m_vecBufferInfo.at(i).pBufvClient, pBuf, nLen);
+			}
+		}
+	 }
+	 return -1;
 }
 
 void OnAccept(evconnlistener *listener, evutil_socket_t fdClient, sockaddr *pAddr, int nSocklen, void *pParam)
@@ -83,26 +118,37 @@ void OnAccept(evconnlistener *listener, evutil_socket_t fdClient, sockaddr *pAdd
 	{
 		return;
 	}
-
-	event_base *pBase = (event_base*)pParam;
-	bufferevent *pBufEvent = bufferevent_socket_new(pBase, fdClient, BEV_OPT_CLOSE_ON_FREE);
+	
+	CBufferEventSer *pDlg = (CBufferEventSer *)pParam;
+	event_base *pBase = evconnlistener_get_base(listener);
+	bufferevent *pBufEvent = bufferevent_socket_new(pBase, fdClient, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
 	if (NULL == pBufEvent)
 	{
 		return;
 	}
-	bufferevent_setcb(pBufEvent, OnRead, OnWrite, OnEvent, NULL);
-	bufferevent_enable(pBufEvent, EV_READ | EV_WRITE | EV_PERSIST);
+	BUFFER_INFO_T bufvInfo;
+	bufvInfo.fdClient = fdClient;
+	bufvInfo.pBufvClient = pBufEvent;
+	pDlg->m_vecBufferInfo.push_back(bufvInfo);
+	bufferevent_setcb(pBufEvent, OnRead, NULL, OnEvent, pParam);
+	bufferevent_enable(pBufEvent, EV_READ | /*EV_WRITE |*/ EV_PERSIST);
+	g_param.cbFun(TCP_SERVER_CONNECT, g_param.pThis, (void*)&fdClient);
 }
 
 void OnRead(bufferevent *pBufEvent, void *pParam)
 {
-	char szMsg[MAX_READ_MSG_LEN] = {0};
+	unsigned char szMsg[MAX_READ_MSG_LEN] = {0};
 
+	CBufferEventSer *pDlg = (CBufferEventSer *)pParam;
 	int nLen = bufferevent_read(pBufEvent, szMsg, MAX_READ_MSG_LEN);
 	if (nLen > 0)
 	{
-		g_param.cbFun(g_param.pThis, szMsg);
-		bufferevent_write(pBufEvent, szMsg, strlen(szMsg)+1);
+		DATA_PACKAGE_T data;
+		data.pSendID = pBufEvent;
+		data.nLen = nLen;
+		data.pData = szMsg;
+		g_param.cbFun(TCP_READ_DATA, g_param.pThis, (void*)&data);
+		//bufferevent_write(pBufEvent, szMsg, strlen(szMsg)+1);
 	}
 }
 
@@ -117,6 +163,22 @@ void OnEvent(bufferevent *pBufEvent, short nEventType, void *pParam)
 	{
 		//OnEvent connect closed
 		bufferevent_free(pBufEvent);
+
+		CBufferEventSer *pDlg = (CBufferEventSer *)pParam;
+		vector<BUFFER_INFO_T>::iterator it = pDlg->m_vecBufferInfo.begin();
+		for ( ; it != pDlg->m_vecBufferInfo.end() ; )
+		{
+			if (it->pBufvClient == pBufEvent)
+			{
+				g_param.cbFun(TCP_SERVER_DISCONNECT, g_param.pThis, (void*)&it->fdClient);
+				it = pDlg->m_vecBufferInfo.erase(it);
+				break;
+			}
+			else
+			{
+				it++;
+			}
+		}
 	}
 	else if (nEventType & BEV_EVENT_CONNECTED)
 	{

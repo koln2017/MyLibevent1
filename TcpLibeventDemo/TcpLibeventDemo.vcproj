@@ -283,6 +283,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Header.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Resource.h"
 				>
 			</File>

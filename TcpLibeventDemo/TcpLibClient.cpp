@@ -18,7 +18,7 @@ CTcpLibClient::~CTcpLibClient(void)
 {
 }
 
-int CTcpLibClient::Init(char *pIP, int nPort)
+int CTcpLibClient::Init()
 {
 	WSADATA wsaData;
 	DWORD dwRet;
@@ -33,8 +33,8 @@ int CTcpLibClient::Init(char *pIP, int nPort)
 	struct sockaddr_in seraddr;
 	bzero(&seraddr, sizeof(seraddr));
 	seraddr.sin_family = AF_INET;
-	seraddr.sin_port = htons(nPort);
-	if (inet_pton(AF_INET, pIP, &seraddr.sin_addr) < 1)
+	seraddr.sin_port = htons(g_param.nPort);
+	if (inet_pton(AF_INET, g_param.pIP, &seraddr.sin_addr) < 1)
 	{
 		return inet_ntop_fail;
 	}
@@ -84,9 +84,15 @@ void CTcpLibClient::Stop()
 	event_base_loopexit(m_pBase, NULL);	
 }
 
-void CTcpLibClient::Send(const unsigned char*pBuf, unsigned int nLen)
+int CTcpLibClient::Send(void *pSendID, const unsigned char*pBuf, unsigned int nLen)
 {
-	bufferevent_write(m_pBev, pBuf, nLen);
+	return bufferevent_write(m_pBev, pBuf, nLen);
+}
+
+int CTcpLibClient::GetSocketID()
+{
+	evutil_socket_t nFd = bufferevent_getfd(m_pBev);
+	return nFd;
 }
 
 void cmd_msg_cb(int fd, short event, void *arg)
@@ -101,7 +107,7 @@ void read_cli_cb(struct bufferevent *pBev, void *arg)
 
 	while((n = bufferevent_read(pBev, szLine, MAX_LINE)) > 0)
 	{
-		g_param.cbFun(g_param.pThis, szLine);
+		g_param.cbFun(TCP_READ_DATA, g_param.pThis, szLine);
 	}
 }
 

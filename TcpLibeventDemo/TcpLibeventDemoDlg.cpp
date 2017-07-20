@@ -56,6 +56,11 @@ CTcpLibeventDemoDlg::CTcpLibeventDemoDlg(CWnd* pParent /*=NULL*/)
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
+CTcpLibeventDemoDlg::~CTcpLibeventDemoDlg()
+{
+	delete m_pBufEventSer;
+}
+
 void CTcpLibeventDemoDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
@@ -160,25 +165,62 @@ HCURSOR CTcpLibeventDemoDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-void TcpcbFun(void *argc, void *argv)
+void CTcpLibeventDemoDlg::TcpcbFun(CBTYPE_EN enType, void *pThis, void *pBuf)
 {
-	CTcpLibeventDemoDlg *pDlg = (CTcpLibeventDemoDlg*)argc;
-	char *pBuf = (char*)argv;
+	CTcpLibeventDemoDlg *pDlg = (CTcpLibeventDemoDlg*)pThis;
+	switch (enType)
+	{
+	case TCP_CLIENT_CONNECT:
+		{
+			int nFd = *(int*)pBuf;
+			int i = 0;
+		}
+		break;
+	case TCP_CLIENT_DISCONNECT:
+		{
+			int nFd = *(int*)pBuf;
+			int i = 0;
+		}
+		break;
+	case TCP_SERVER_CONNECT:
+		{
+			int nFd = *(int*)pBuf;
+			int i = 0;
+		}
+		break;
+	case TCP_SERVER_DISCONNECT:
+		{
+			int nFd = *(int*)pBuf;
+			int i = 0;
+		}
+		break;
+	case TCP_READ_DATA:
+		{
+			DATA_PACKAGE_T *pData = (DATA_PACKAGE_T*)pBuf;
 
-	USES_CONVERSION;
-	CString str;
-	pDlg->m_editRecv.GetWindowText(str);
-	if (_T("") != str)
-	{	
-		str.AppendFormat(_T("\r\n"));
+			USES_CONVERSION;
+			CString str;
+			pDlg->m_editRecv.GetWindowText(str);
+			if (_T("") != str)
+			{	
+				str.AppendFormat(_T("\r\n"));
+			}
+			str.AppendFormat(A2W((char*)pData->pData));
+			pDlg->m_editRecv.SetWindowText(str);
+		}
+		break;
+	default:
+		break;
+
 	}
-	str.AppendFormat(A2W(pBuf));
-	pDlg->m_editRecv.SetWindowText(str);
+
 }
 
 void CTcpLibeventDemoDlg::OnBnClickedButton1()
 {
 	CBFUN_PARAM_T param;
+	param.pIP = "10.21.38.21";
+	param.nPort = 8888;
 	param.pThis = this;
 	param.cbFun = TcpcbFun;
 	int nSel = m_cmbType.GetCurSel();
@@ -188,32 +230,34 @@ void CTcpLibeventDemoDlg::OnBnClickedButton1()
 		{
 			//服务端_bufferevent
 			m_pBufEventSer = NewTcpLib(0, param);
-			m_pBufEventSer->Init("", 8888);
+			m_pBufEventSer->Init();
 			m_pBufEventSer->Start();
 		}
 		break;
 	case 1:
 		{
 			//服务端_event
-			m_pTcpLibSer = NewTcpLib(1, param);
-			m_pTcpLibSer->Init("", 8888);
+			m_pTcpLibSer = NewTcpLib(2, param);
+			m_pTcpLibSer->Init();
 			m_pTcpLibSer->Start();
 		}
 		break;
 	case 2:
 		{
 			//客户端_bufferevent
-			m_pBufEventClient = NewTcpLib(2, param);
-			m_pBufEventClient->Init("1.1.1.1", 8888);
+			m_pBufEventClient = NewTcpLib(1, param);
+			m_pBufEventClient->Init();
 			m_pBufEventClient->Start();
+			int nFd = m_pBufEventClient->GetSocketID();
 		}
 		break;
 	case 3:
 		{
 			//客户端_event
 			m_pTcpLibClient= NewTcpLib(3, param);
-			m_pTcpLibClient->Init("1.1.1.1", 8888);
+			m_pTcpLibClient->Init();
 			m_pTcpLibClient->Start();
+			int nFd = m_pBufEventClient->GetSocketID();
 		}
 		break;
 	default:
@@ -269,28 +313,28 @@ void CTcpLibeventDemoDlg::OnBnClickedButton3()
 		{
 			//服务端_bufferevent
 			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
-			m_pBufEventSer->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+			m_pBufEventSer->Send(NULL, (const unsigned char*)W2A(pBuf), str.GetLength());
 		}
 		break;
 	case 1:
 		{
 			//服务端_event
 			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
-			m_pTcpLibSer->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+			m_pTcpLibSer->Send(NULL, (const unsigned char*)W2A(pBuf), str.GetLength());
 		}
 		break;
 	case 2:
 		{
 			//客户端_bufferevent
 			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
-			m_pBufEventClient->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+			m_pBufEventClient->Send(NULL, (const unsigned char*)W2A(pBuf), str.GetLength());
 		}
 		break;
 	case 3:
 		{
 			//客户端_event
 			TCHAR *pBuf = (LPTSTR)(LPCTSTR)str;
-			m_pTcpLibClient->Send((const unsigned char*)W2A(pBuf), str.GetLength());
+			m_pTcpLibClient->Send(NULL, (const unsigned char*)W2A(pBuf), str.GetLength());
 		}
 		break;
 	default:

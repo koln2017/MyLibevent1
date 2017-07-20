@@ -16,14 +16,14 @@ CTcpLibBase *NewTcpLib(int nType, CBFUN_PARAM_T param)
 		break;
 	case 1:
 		{
-			//服务端_event
-			return new CTcpLibServer(param);
+			//客户端_bufferevent
+			return new CBufferEventClient(param);
 		}
 		break;
 	case 2:
 		{
-			//客户端_bufferevent
-			return new CBufferEventClient(param);
+			//服务端_event
+			return new CTcpLibServer(param);
 		}
 		break;
 	case 3:
@@ -35,4 +35,10 @@ CTcpLibBase *NewTcpLib(int nType, CBFUN_PARAM_T param)
 	default:
 		break;
 	}
+	return NULL;
+}
+
+int CTcpLibBase::GetSocketID()
+{
+	return -1;
 }
